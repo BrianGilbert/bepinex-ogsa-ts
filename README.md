@@ -44,7 +44,15 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
 1. [Install BepInEx 5](https://docs.bepinex.dev/articles/user_guide/installation/index.html)
    (x64) into the game. Mono games with a .NET 4.7.2+ runtime only —
    IL2CPP games are not supported (yet).
-2. Drop `ogsa_telemetry.dll` into `<game>/BepInEx/plugins/`.
+   **Where:** extract the BepInEx zip into the game's installation root —
+   the folder containing the game's `.exe` (Steam: right-click the game →
+   Manage → **Browse local files**). This creates the `BepInEx\` folder
+   next to the exe; run the game once to finish setup.
+2. Drop `ogsa_telemetry.dll` into that game's
+   `<game root>\BepInEx\plugins\` — e.g.
+   `C:\...\steamapps\common\<GameName>\BepInEx\plugins\`.
+   If `plugins\` doesn't exist yet, create it. BepInEx plugins are
+   per-game: the DLL only loads for the game you place it in.
 3. Run the game once; configure `<game>/BepInEx/config/ogsa.telemetry.cfg`:
    ```ini
    [Transport] Group = 239.255.17.17   ; Port = 40123   ; Ttl = 1
