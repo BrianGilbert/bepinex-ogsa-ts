@@ -79,7 +79,8 @@ jobs:
           $dlls = Get-ChildItem . -Filter *.dll |
             Where-Object { $_.Name -ne 'UnityEngine.dll' }
           if (-not (Test-Path ogsa_telemetry.dll)) { throw "ogsa_telemetry.dll missing from artifact" }
-          Compress-Archive -Path $dlls.FullName, README.md -DestinationPath $name
+          $paths = @($dlls.FullName) + 'README.md'
+          Compress-Archive -Path $paths -DestinationPath $name
           "zip=$name" >> $env:GITHUB_ENV
       - name: Release
         uses: softprops/action-gh-release@v3
