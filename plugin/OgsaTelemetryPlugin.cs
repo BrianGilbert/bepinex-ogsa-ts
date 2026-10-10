@@ -15,7 +15,6 @@
 //   2. Camera.main transform root (flatscreen: camera sits on the player)
 // Re-resolves automatically if the pawn is destroyed (scene change).
 using System;
-using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -92,12 +91,33 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
             _pawn = ResolvePawn();
             if (_pawn != null)
             {
-                pub.BindPose(() => ToNumerics(_pawn.position),
-                             () => ToNumerics(_pawn.rotation));
+                pub.BindPose(() => SafePos(), () => SafeRot());
                 _warnedNoPawn = false;
             }
         }
         pub.Tick((double)Time.time);
+    }
+
+    // pose getters that survive scene changes and menu phases:
+    // a destroyed transform (scene unload) re-triggers resolution, and a
+    // degenerate quaternion (menu-state fallback reads) ships identity
+    // instead of a zero norm that trips receiver validation
+    System.Numerics.Vector3 SafePos()
+    {
+        try { var p = _pawn.position; return new System.Numerics.Vector3(p.x, p.y, p.z); }
+        catch { _pawn = null!; return default; }
+    }
+
+    System.Numerics.Quaternion SafeRot()
+    {
+        try
+        {
+            var r = _pawn.rotation;
+            if (r.x == 0f && r.y == 0f && r.z == 0f && r.w == 0f)
+                return System.Numerics.Quaternion.Identity; // menu-phase garbage
+            return new System.Numerics.Quaternion(r.x, r.y, r.z, r.w);
+        }
+        catch { _pawn = null!; return System.Numerics.Quaternion.Identity; }
     }
 
     Transform ResolvePawn()
@@ -129,27 +149,17 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     {
         try
         {
-            var exe = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            var dir = Path.GetDirectoryName(exe ?? "");
-            // BepInEx plugins live in <game>/BepInEx/plugins — walk up to the exe
-            var gameDir = dir != null
-                ? Path.GetDirectoryName(Path.GetDirectoryName(
-                      Path.GetDirectoryName(dir)))
-                : null;
-            var name = gameDir != null
-                ? Path.GetFileName(gameDir)
-                : Paths.ProcessName;
-            return string.IsNullOrEmpty(name) ? Paths.ProcessName : name;
+            // Paths.ProcessName is the game's actual executable name; do NOT
+            // derive from the plugin location — mod managers (Rai Pal) deploy
+            // plugins into per-game hash folders under AppData
+            var name = Paths.ProcessName;
+            if (!string.IsNullOrEmpty(name)) return name;
+            return "unknown-game";
         }
         catch
         {
-            return Paths.ProcessName;
+            return "unknown-game";
         }
     }
-
-    static System.Numerics.Vector3 ToNumerics(Vector3 v) =>
-        new System.Numerics.Vector3(v.x, v.y, v.z);
-    static System.Numerics.Quaternion ToNumerics(Quaternion q) =>
-        new System.Numerics.Quaternion(q.x, q.y, q.z, q.w);
 }
 }
