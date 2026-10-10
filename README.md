@@ -39,6 +39,18 @@ The binding constraint is the game's **.NET runtime**, not Unity's API — every
 
 If the game is Mono and 2018.3+ and the plugin still doesn't load, check the BepInEx console/log — a `TargetFramework` load failure means the game shipped on the legacy profile.
 
+**Two 10-second checks** (no guessing):
+
+- **Before installing anything:** right-click
+  `<game>\<Game>_Data\Managed\mscorlib.dll` → Properties → Details —
+  File version `2.0.x` = legacy .NET 3.5 (incompatible);
+  `4.0.x` = .NET 4.x (compatible)
+- **From the BepInEx log** (`<game root>\BepInEx\LogOutput.log`):
+  `CLR runtime version: 2.0.50727.x` = legacy (incompatible);
+  `4.0.30319.x` = .NET 4.x (compatible). `0 plugins to load` next to a
+  `Chainloader` line means BepInEx rejected the plugin — look up for
+  the reason.
+
 ## Install
 
 1. [Install BepInEx 5](https://docs.bepinex.dev/articles/user_guide/installation/index.html)
@@ -48,11 +60,13 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
    the folder containing the game's `.exe` (Steam: right-click the game →
    Manage → **Browse local files**). This creates the `BepInEx\` folder
    next to the exe; run the game once to finish setup.
-2. Drop `ogsa_telemetry.dll` into that game's
-   `<game root>\BepInEx\plugins\` — e.g.
+2. Extract the release zip contents into that game's
+   `<game root>\BepInEx\plugins\` — **all DLLs, not just
+   `ogsa_telemetry.dll`** (the serializer and runtime ships beside it;
+   ~15 files). E.g.
    `C:\...\steamapps\common\<GameName>\BepInEx\plugins\`.
    If `plugins\` doesn't exist yet, create it. BepInEx plugins are
-   per-game: the DLL only loads for the game you place it in.
+   per-game: the DLLs only load for the game you place them in.
 3. Run the game once; configure `<game>/BepInEx/config/ogsa.telemetry.cfg`:
    ```ini
    [Transport] Group = 239.255.17.17   ; Port = 40123   ; Ttl = 1
@@ -79,7 +93,8 @@ with a synthetic pawn; exit 0 = pass. TelemetryReceive beside it shows
 touches; the real game's UnityEngine provides the implementation at
 runtime. `prepare-refs.ps1` fetches the real LGPL BepInEx.dll
 reference. The entire Ogsa.Telemetry C# core is vendored
-(`sync-core.ps1`) and compiled into the plugin — one DLL, no extra deps.
+(`sync-core.ps1`) and compiled into the plugin; the serializer (`Capnp.Net.Runtime`)
+and its ships-along DLLs ride in the release zip as siblings.
 
 ## Layout
 
