@@ -22,6 +22,23 @@ world frame matches OGSA-TS natively — values pass through unmapped.
 The camera itself is engine-smoothed and a rig following it would feed
 platform motion back into telemetry.
 
+## Compatibility
+
+| Unity band | Status | Notes |
+|---|---|---|
+| 2018.3 – 2021.1 | ✅ best case | .NET 4.x runtime is the default (Mono ≈ 4.7.1) |
+| 2021.2 – 2023.x / Unity 6 (Mono builds) | ✅ | Mono 6 / .NET 4.8-era runtime |
+| 2017.2 – 2018.2 | ⚠️ | works if the developer selected the then-experimental ".NET 4.x" scripting profile |
+| ≤ 2017.1 (or any game on the legacy .NET 3.5 profile) | ❌ | the serializer can't target net35 — older BepInEx catalog |
+| Any IL2CPP game | ❌ | needs the (not yet built) BepInEx 6 variant |
+
+The binding constraint is the game's **.NET runtime**, not Unity's API — every Unity surface this plugin touches has been ABI-stable since the Unity 5 era. **Quick check** for a specific game, look in `<game>/<Game>_Data/`:
+
+- `GameAssembly.dll` present → **IL2CPP** → out of scope
+- only `Assembly-CSharp.dll` / `UnityEngine.dll` → **Mono** → check the Unity version (BepInEx prints it on first run) → 2018.3+ should work
+
+If the game is Mono and 2018.3+ and the plugin still doesn't load, check the BepInEx console/log — a `TargetFramework` load failure means the game shipped on the legacy profile.
+
 ## Install
 
 1. [Install BepInEx 5](https://docs.bepinex.dev/articles/user_guide/installation/index.html)
