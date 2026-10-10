@@ -74,12 +74,12 @@ jobs:
         shell: pwsh
         run: |
           $name = "bepinex_ogsa_telemetry-$($env:TAG.TrimStart('v'))-win64.zip"
-          # the plugin carries its dependency DLLs (serializer + shims) —
-          # all of bin/Release except our compile-only stub reference
-          $dlls = Get-ChildItem plugin/bin/Release -Filter *.dll |
+          # artifact lands flat in cwd (download-artifact strips paths);
+          # all plugin dependency DLLs except our compile-only stub
+          $dlls = Get-ChildItem . -Filter *.dll |
             Where-Object { $_.Name -ne 'UnityEngine.dll' }
-          Copy-Item README.md plugin/bin/Release/
-          Compress-Archive -Path $dlls.FullName, plugin/bin/Release/README.md -DestinationPath $name
+          if (-not (Test-Path ogsa_telemetry.dll)) { throw "ogsa_telemetry.dll missing from artifact" }
+          Compress-Archive -Path $dlls.FullName, README.md -DestinationPath $name
           "zip=$name" >> $env:GITHUB_ENV
       - name: Release
         uses: softprops/action-gh-release@v3
