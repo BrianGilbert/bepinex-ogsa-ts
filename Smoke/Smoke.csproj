@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ogsa_smoke</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
+    <Compile Remove="../OgsaTelemetry/TelemetryReceiver.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
+  </ItemGroup>
+
+</Project>

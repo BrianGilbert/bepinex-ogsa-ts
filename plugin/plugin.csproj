@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ogsa_telemetry</AssemblyName>
+    <RootNamespace>Ogsa.BepInEx</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
+    <Compile Remove="../OgsaTelemetry/TelemetryReceiver.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- real BepInEx.dll, fetched by prepare-refs.ps1 (LGPL, redistributable) -->
+    <Reference Include="BepInEx">
+      <HintPath>../lib/BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- our compile-only stub; runtime binds to the game's real module.
+         AssemblyName is "UnityEngine.CoreModule" but BepInEx.dll was built
+         against the classic type-forwarding "UnityEngine" facade, so the
+         stub must be named "UnityEngine" for its MonoBehaviour to unify. -->
+    <Reference Include="UnityEngine">
+      <HintPath>../vendor/UnityEngineStub/bin/Debug/netstandard2.0/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- spans on .NET Framework for the vendored core -->
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+    <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
+  </ItemGroup>
+
+</Project>

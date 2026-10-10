@@ -1,0 +1,83 @@
+name: ci
+# Builds the plugin (net472, BepInEx 5 ref fetched by prepare-refs.ps1,
+# UnityEngine via our committed compile-only stub) and runs the standalone
+# smoke test. Pushes to main publish a CalVer release
+# (bepinex_ogsa_telemetry-[YYYY.MM.DD]-win64.zip) — same handling as
+# uevr-ogsa-ts / ue4ss-ogsa-ts.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Fetch BepInEx reference
+        run: ./prepare-refs.ps1
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Build stub + plugin
+        run: |
+          dotnet build vendor/UnityEngineStub/UnityEngineStub.csproj --nologo
+          dotnet build plugin/plugin.csproj --nologo -c Release
+      - name: Build + run smoke test
+        run: |
+          dotnet build Smoke/Smoke.csproj --nologo
+          dotnet run --project Smoke --no-build
+      - name: Upload plugin artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ogsa-telemetry-plugin
+          path: plugin/bin/Release/ogsa_telemetry.dll
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-smoke
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Download plugin artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ogsa-telemetry-plugin
+      - name: CalVer tag
+        id: calver
+        shell: bash
+        run: |
+          base="v$(date -u +%Y.%m.%d)"
+          tag="$base"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tag="$base.${{ github.run_number }}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Package
+        env:
+          TAG: ${{ steps.calver.outputs.tag }}
+        shell: pwsh
+        run: |
+          $name = "bepinex_ogsa_telemetry-$($env:TAG.TrimStart('v'))-win64.zip"
+          Compress-Archive -Path ogsa_telemetry.dll, README.md -DestinationPath $name
+          "zip=$name" >> $env:GITHUB_ENV
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.calver.outputs.tag }}
+          name: ${{ steps.calver.outputs.tag }}
+          files: ${{ env.zip }}
+          generate_release_notes: true
