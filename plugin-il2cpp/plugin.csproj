@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ogsa_telemetry</AssemblyName>
+    <RootNamespace>Ogsa.BepInEx</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- net-core classlibs don't copy package runtime DLLs to bin by
+         default (net472 did); force it so the serializer + its deps ship
+         beside the plugin — the BepInEx refs stay excluded via
+         ExcludeAssets=runtime, so only Capnp's closure copies. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- BepInEx.Unity.IL2CPP's Cpp2IL dependency chain resolves to a
+         slightly older pre-release on the feed (NU1603); compile-time-
+         only and never reaches the output. -->
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
+    <Compile Remove="../OgsaTelemetry/TelemetryReceiver.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- BepInEx 6 Unity-IL2CPP (be.788 == the current official IL2CPP
+         distribution) from the official BepInEx NuGet feed, plus its
+         interop reference libs (the same ones BepInEx.Unity.IL2CPP itself
+         compiles against: UnityEngine types as Il2CppInterop proxies —
+         value structs keep Unity's names/layout, MonoBehaviour is
+         injectable). Compile-only: the running game's runtime-generated
+         interop assemblies provide everything at runtime, so nothing of
+         theirs ships in the release zip. -->
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.788"
+                      IncludeAssets="compile" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Il2CppInterop.ReferenceLibs" Version="1.0.0"
+                      IncludeAssets="compile" ExcludeAssets="runtime" PrivateAssets="all" />
+    <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
+  </ItemGroup>
+
+</Project>
