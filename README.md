@@ -31,11 +31,11 @@ platform motion back into telemetry.
 
 | Unity band | Status | Notes |
 |---|---|---|
-| 2018.3 – 2021.1 | ✅ best case | .NET 4.x runtime is the default (Mono ≈ 4.7.1) |
-| 2021.2 – 2023.x / Unity 6 (Mono builds) | ✅ | Mono 6 / .NET 4.8-era runtime |
-| 2017.2 – 2018.2 | ⚠️ | works if the developer selected the then-experimental ".NET 4.x" scripting profile |
-| ≤ 2017.1 (or any game on the legacy .NET 3.5 profile) | ❌ | the serializer can't target net35 — older BepInEx catalog |
 | Any IL2CPP game (Unity 2019+ typical) | ✅ | `il2cpp/` flavor on [BepInEx 6](https://builds.bepinex.dev/projects/bepinex_be) (be.788+); plugin code runs on BepInEx's .NET 6 sidecar, not inside IL2CPP |
+| 2018.3 – 2021.1 (Mono) | ✅ | .NET 4.x runtime is the default (Mono ≈ 4.7.1) |
+| 2021.2 – 2023.x / Unity 6 (Mono builds) | ✅ | Mono 6 / .NET 4.8-era runtime |
+| 2017.2 – 2018.2 (Mono) | ⚠️ | works if the developer selected the then-experimental ".NET 4.x" scripting profile |
+| ≤ 2017.1, or any game on the legacy .NET 3.5 profile | ❌ | the serializer can't target net35 — older BepInEx catalog |
 
 The binding constraint on Mono is the game's **.NET runtime**, not
 Unity's API — every Unity surface this plugin touches has been
