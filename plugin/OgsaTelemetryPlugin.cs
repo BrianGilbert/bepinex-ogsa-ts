@@ -14,6 +14,14 @@
 //   1. Configured GameObject tag (default "Player")
 //   2. Camera.main transform root (flatscreen: camera sits on the player)
 // Re-resolves automatically if the pawn is destroyed (scene change).
+//
+// The object NAME stays the stable role name ("player" by default) —
+// receivers match motion frames to discovery by it. What is actually
+// being tracked is surfaced as the discovery typeLabel: the pawn's
+// GameObject name with Unity instantiation suffixes stripped
+// ("Player(Clone)" / "Player (2)" -> "Player"), updated on every
+// (re)resolution; a changed label re-sends discovery per the standard's
+// re-send-on-change rule. Config ObjectTypeLabel overrides.
 using System;
 using BepInEx;
 using BepInEx.Configuration;
@@ -40,6 +48,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     ConfigEntry<int> _ttl = null!;
     ConfigEntry<double> _motionHz = null!;
     ConfigEntry<string> _objectName = null!;
+    ConfigEntry<string> _typeLabel = null!;
     ConfigEntry<string> _pawnTag = null!;
     ConfigEntry<bool> _useCameraRoot = null!;
 
@@ -54,6 +63,11 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                 "Motion frame rate cap");
         _objectName = Config.Bind("Telemetry", "ObjectName", "player",
                                   "Object name in discovery");
+        _typeLabel = Config.Bind("Telemetry", "ObjectTypeLabel", "",
+                                 "Object typeLabel in discovery (display " +
+                                 "flavor). Empty = auto: the tracked pawn's " +
+                                 "GameObject name with instantiation " +
+                                 "suffixes stripped");
         _pawnTag = Config.Bind("Pawn", "Tag", "Player",
                                "GameObject tag that marks the player pawn");
         _useCameraRoot = Config.Bind("Pawn", "CameraRootFallback", true,
@@ -67,6 +81,8 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                       loopback: true);
         _publisher = new TelemetryPublisher(_sender, GameName(), _motionHz.Value);
         _publisher.DeclareObject(_objectName.Value);
+        if (!string.IsNullOrEmpty(_typeLabel.Value))
+            _publisher.SetObjectTypeLabel(_typeLabel.Value); // config wins
         UnityEngine.Debug.Log("[ogsa] OGSA-TS telemetry enabled: pawn '" +
                               _objectName.Value + "' -> " + _group.Value + ":" +
                               _port.Value);
@@ -92,6 +108,8 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
             if (_pawn != null)
             {
                 pub.BindPose(() => SafePos(), () => SafeRot());
+                if (string.IsNullOrEmpty(_typeLabel.Value))
+                    pub.SetObjectTypeLabel(CleanPawnName(_pawn.name));
                 _warnedNoPawn = false;
             }
         }
@@ -143,6 +161,25 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                 "root); retrying every second — set Pawn.Tag in the config");
         }
         return null!;
+    }
+
+    // "Player(Clone)" / "Player (Clone)" / "Player (2)" -> "Player": the
+    // class-level name stays stable across respawn/instantiation, matching
+    // the schema's stable-name requirement (instance-suffixed names would
+    // churn discovery re-sends on every respawn)
+    static string CleanPawnName(string name)
+    {
+        var n = name.TrimEnd();
+        if (n.EndsWith("(Clone)", StringComparison.Ordinal))
+            n = n.Substring(0, n.Length - "(Clone)".Length).TrimEnd();
+        if (n.EndsWith(")", StringComparison.Ordinal))
+        {
+            var cut = n.Length - 1;              // Unity duplicate suffix " (2)"
+            while (cut > 0 && char.IsDigit(n[cut - 1])) cut--;
+            if (cut >= 2 && n[cut - 1] == '(' && n[cut - 2] == ' ')
+                n = n.Substring(0, cut - 2).TrimEnd();
+        }
+        return n;
     }
 
     static string GameName()

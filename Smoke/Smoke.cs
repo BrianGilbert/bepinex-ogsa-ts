@@ -13,6 +13,10 @@ pub.DeclareObject("synthetic_pawn");
 var rpm = pub.DeclareChannel("engine.rpm", Unit.Rpm, "Synthetic", 0, 9000);
 pub.BindChannelRaw(rpm, () => 6500.0 * (0.5 + 0.5 * Math.Sin(0.0)));
 
+// runtime-tracked label swap (injected-mod pattern): name stays
+// "synthetic_pawn", the discovery typeLabel updates mid-stream
+bool labelSwapped = false;
+
 double t = 0; int frames = 0;
 for (int i = 0; i < 150; i++)
 {
@@ -20,10 +24,11 @@ for (int i = 0; i < 150; i++)
     Vector3 pos = new(10f * MathF.Cos((float)yaw), 0f, 10f * MathF.Sin((float)yaw));
     Quaternion q = new(0f, MathF.Sin((float)(yaw / 2)), 0f, MathF.Cos((float)(yaw / 2)));
     pub.BindPose(() => pos, () => q);
+    if (i == 75) { pub.SetObjectTypeLabel("BP_SyntheticPawn_C"); labelSwapped = true; }
     t += 1.0 / 60.0;
     pub.Tick(t);
     frames++;
 }
-if (frames != 150) { Console.WriteLine("FAIL frame count"); return 1; }
-Console.WriteLine($"smoke: 150 ticks published (discovery + motion sent)");
+if (frames != 150 || !labelSwapped) { Console.WriteLine("FAIL frame count"); return 1; }
+Console.WriteLine($"smoke: 150 ticks published (discovery + motion sent, typeLabel swapped at tick 75)");
 return 0;

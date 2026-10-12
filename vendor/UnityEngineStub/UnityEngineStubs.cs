@@ -23,6 +23,7 @@ namespace UnityEngine
 
     public class Object
     {
+        public string name { get { return ""; } } // ancient stable API; binds at runtime
         public static implicit operator bool(Object o) => o != null;
         public static bool operator ==(Object a, Object b) => ReferenceEquals(a, b);
         public static bool operator !=(Object a, Object b) => !ReferenceEquals(a, b);
