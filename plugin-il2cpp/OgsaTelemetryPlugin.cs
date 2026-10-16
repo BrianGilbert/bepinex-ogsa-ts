@@ -57,6 +57,7 @@ public class OgsaTelemetryPlugin : BasePlugin
     internal ConfigEntry<string> _typeLabel = null!;
     internal ConfigEntry<string> _pawnTag = null!;
     internal ConfigEntry<bool> _useCameraRoot = null!;
+    internal ConfigEntry<bool> _dynamics = null!;
 
     public override void Load()
     {
@@ -81,6 +82,12 @@ public class OgsaTelemetryPlugin : BasePlugin
         _useCameraRoot = Config.Bind("Pawn", "CameraRootFallback", true,
                                      "If the tag finds nothing, use the main " +
                              "camera's root transform (flatscreen pawn proxy)");
+        _dynamics = Config.Bind("Telemetry", "Dynamics", true,
+                                "Send the bodyDynamics union variant " +
+                                "(specific force + angular rates, derived " +
+                                "from the pawn pose — the direct motion-cueing " +
+                                "inputs). Takes effect when the pawn is " +
+                                "(re)resolved");
 
         AddComponent<OgsaBehaviour>();
         Log.LogInfo("[ogsa] OGSA-TS telemetry (IL2CPP) loaded: pawn '" +
@@ -118,6 +125,10 @@ public class OgsaBehaviour : MonoBehaviour
     float _lastResolveAttempt = -1f;
     bool _warnedNoPawn;
 
+    // pose → body-dynamics derivation (vendored core, same semantics as
+    // the C++ twin in ogsa-ts-unreal and the Mono flavor)
+    BodyDynamicsDeriver _deriver = new();
+
     void OnEnable()
     {
         var p = OgsaTelemetryPlugin.Instance;
@@ -154,11 +165,19 @@ public class OgsaBehaviour : MonoBehaviour
             {
                 pub.BindPose(() => SafePos(), () => SafeRot());
                 var p = OgsaTelemetryPlugin.Instance;
+                if (p._dynamics.Value)
+                    pub.BindBodyDynamics(() =>
+                        (_deriver.SpecificForce, _deriver.AngularVelocity));
+                _deriver = new BodyDynamicsDeriver(); // fresh state per pawn
                 if (string.IsNullOrEmpty(p._typeLabel.Value))
                     pub.SetObjectTypeLabel(CleanPawnName(_pawn.name));
                 _warnedNoPawn = false;
             }
         }
+        // derivation runs every frame the pawn exists (not just at the
+        // publisher's cadence), so derivative denominators stay small
+        if (_pawn != null)
+            _deriver.Sample((double)Time.time, SafePos(), SafeRot());
         pub.Tick((double)Time.time);
     }
 

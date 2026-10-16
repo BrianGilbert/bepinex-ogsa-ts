@@ -51,6 +51,13 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     ConfigEntry<string> _typeLabel = null!;
     ConfigEntry<string> _pawnTag = null!;
     ConfigEntry<bool> _useCameraRoot = null!;
+    ConfigEntry<bool> _dynamics = null!;
+
+    // pose → body-dynamics derivation (vendored core, same semantics as
+    // the C++ twin in ogsa-ts-unreal): specific force accelerometer-style
+    // (+9.80665 heave at rest), angular velocity in the C-4 component
+    // sense — see BodyDynamicsDeriver's class doc
+    BodyDynamicsDeriver _deriver = new();
 
     void Awake()
     {
@@ -73,6 +80,12 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
         _useCameraRoot = Config.Bind("Pawn", "CameraRootFallback", true,
                                      "If the tag finds nothing, use the main " +
                              "camera's root transform (flatscreen pawn proxy)");
+        _dynamics = Config.Bind("Telemetry", "Dynamics", true,
+                                "Send the bodyDynamics union variant " +
+                                "(specific force + angular rates, derived " +
+                                "from the pawn pose — the direct motion-cueing " +
+                                "inputs). Takes effect when the pawn is " +
+                                "(re)resolved");
     }
 
     void OnEnable()
@@ -108,11 +121,21 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
             if (_pawn != null)
             {
                 pub.BindPose(() => SafePos(), () => SafeRot());
+                if (_dynamics.Value)
+                    pub.BindBodyDynamics(() =>
+                        (_deriver.SpecificForce, _deriver.AngularVelocity));
+                _deriver = new BodyDynamicsDeriver(); // fresh state per pawn
                 if (string.IsNullOrEmpty(_typeLabel.Value))
                     pub.SetObjectTypeLabel(CleanPawnName(_pawn.name));
                 _warnedNoPawn = false;
             }
         }
+        // derivation runs every frame the pawn exists (not just at the
+        // publisher's cadence), so derivative denominators stay small
+        // (is-pattern: a plain reference check — a destroyed transform
+        // still flows into SafePos's catch, same as the pose getters)
+        if (_pawn is { })
+            _deriver.Sample((double)Time.time, SafePos(), SafeRot());
         pub.Tick((double)Time.time);
     }
 

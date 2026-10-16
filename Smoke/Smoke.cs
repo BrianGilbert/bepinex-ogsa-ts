@@ -3,6 +3,11 @@
 // synthetic pawn (Unity frame == OGSA-TS frame, so values pass through
 // unmapped) and prints frame counts. Exit 0 = pass. Run TelemetryReceive
 // beside it to watch 'synthetic_pawn' on the wire.
+//
+// Also drives the vendored BodyDynamicsDeriver exactly as the plugin does
+// (sampled every tick before Tick, bound via BindBodyDynamics) and asserts
+// the derived motion-cueing inputs: yaw rate, +1 g heave (accelerometer-
+// style specific force), centripetal ω²r on +sway.
 using System;
 using System.Numerics;
 using Ogsa.Telemetry;
@@ -13,22 +18,68 @@ pub.DeclareObject("synthetic_pawn");
 var rpm = pub.DeclareChannel("engine.rpm", Unit.Rpm, "Synthetic", 0, 9000);
 pub.BindChannelRaw(rpm, () => 6500.0 * (0.5 + 0.5 * Math.Sin(0.0)));
 
+var deriver = new BodyDynamicsDeriver();
+pub.BindBodyDynamics(() => (deriver.SpecificForce, deriver.AngularVelocity));
+
 // runtime-tracked label swap (injected-mod pattern): name stays
 // "synthetic_pawn", the discovery typeLabel updates mid-stream
 bool labelSwapped = false;
 
+const double dt = 1.0 / 60.0;
+const double yawRate = 90.0;                                  // deg/s
+const double w = yawRate * Math.PI / 180.0;                  // rad/s
+const double r = 10.0;                                       // metres
 double t = 0; int frames = 0;
 for (int i = 0; i < 150; i++)
 {
-    double yaw = t * 0.8;
-    Vector3 pos = new(10f * MathF.Cos((float)yaw), 0f, 10f * MathF.Sin((float)yaw));
-    Quaternion q = new(0f, MathF.Sin((float)(yaw / 2)), 0f, MathF.Cos((float)(yaw / 2)));
+    // pawn circling horizontally at 10 m, nose tangential, turning
+    // nose-right at yawRate — centripetal ω²r points +sway in the body
+    // frame the whole time (Unity/OGSA ground plane is X-Z, Y up — NOT
+    // UE's X-Y)
+    double yr = w * t;
+    Vector3 pos = new(10f * MathF.Cos((float)yr), 0f, 10f * MathF.Sin((float)yr));
+    float heading = (float)(yr + Math.PI / 2.0);
+    Quaternion q = new(0f, MathF.Sin(heading / 2f), 0f, MathF.Cos(heading / 2f));
+    deriver.Sample(t, pos, q);
     pub.BindPose(() => pos, () => q);
     if (i == 75) { pub.SetObjectTypeLabel("BP_SyntheticPawn_C"); labelSwapped = true; }
-    t += 1.0 / 60.0;
+    t += dt;
     pub.Tick(t);
     frames++;
 }
 if (frames != 150 || !labelSwapped) { Console.WriteLine("FAIL frame count"); return 1; }
-Console.WriteLine($"smoke: 150 ticks published (discovery + motion sent, typeLabel swapped at tick 75)");
+Console.WriteLine("smoke: 150 ticks published (discovery + motion sent, typeLabel swapped at tick 75)");
+
+// ---- derived body dynamics assertions (plugin wiring, delta velocity) ----
+{
+    const float g = BodyDynamicsDeriver.Gravity;
+    Vector3 av = deriver.AngularVelocity;
+    Vector3 sf = deriver.SpecificForce;
+    Console.WriteLine($"dynamics: av=({av.X:F4}, {av.Y:F4}, {av.Z:F4}) " +
+                      $"sf=({sf.X:F4}, {sf.Y:F4}, {sf.Z:F4}) " +
+                      $"[expect av.y={w:F4}, sf.y={g:F4}, horiz={w * w * r:F4}]");
+    bool ok = true;
+    ok &= Math.Abs(av.Y - w) < 0.05 && Math.Abs(av.X) < 0.01 && Math.Abs(av.Z) < 0.01;
+    Console.WriteLine((Math.Abs(av.Y - w) < 0.05 && Math.Abs(av.X) < 0.01 && Math.Abs(av.Z) < 0.01)
+        ? "PASS dynamics: yaw rate ≈ 90°/s nose-right (+y, C-4)"
+        : "FAIL dynamics: yaw rate");
+    ok &= Math.Abs(sf.Y - g) < 0.2;
+    Console.WriteLine(Math.Abs(sf.Y - g) < 0.2
+        ? "PASS dynamics: heave ≈ +1 g (accelerometer-style)"
+        : "FAIL dynamics: heave");
+    // centripetal on +sway; surge leakage bounded by the accel LP phase
+    // lag atan(ωτ) on the co-rotating vector (documented filter property)
+    bool sway = Math.Abs(sf.X - (float)(w * w * r)) < 1.5f &&
+                Math.Abs(sf.Z) < (float)(w * w * r) * 0.25f;
+    ok &= sway;
+    Console.WriteLine(sway
+        ? "PASS dynamics: centripetal ω²r on +sway (C-4 right-turn)"
+        : "FAIL dynamics: centripetal");
+    float horiz = MathF.Sqrt(sf.X * sf.X + sf.Z * sf.Z);
+    ok &= Math.Abs(horiz - (float)(w * w * r)) < 1.5f;
+    Console.WriteLine(Math.Abs(horiz - (float)(w * w * r)) < 1.5f
+        ? "PASS dynamics: horizontal specific force ≈ centripetal ω²r"
+        : "FAIL dynamics: horizontal");
+    if (!ok) return 1;
+}
 return 0;

@@ -5,7 +5,9 @@
 motion telemetry from **any Unity game BepInEx injects — Mono or
 IL2CPP** — zero game modification, LAN-only UDP multicast. Motion
 platforms, haptic hardware, and dashboards on the local network can
-follow the game. The release zip carries both flavors in `mono/` and
+follow the game. Motion frames carry pose **plus body dynamics**
+(specific force + angular rates — the direct motion-cueing inputs,
+derived from the pawn pose). The release zip carries both flavors in `mono/` and
 `il2cpp/` subfolders; each is the same plugin built for its BepInEx
 generation. Companion plugins:
 [uevr-ogsa-ts](https://github.com/BrianGilbert/uevr-ogsa-ts) (UE VR) ·
@@ -16,8 +18,8 @@ Support & discussion: [Discord](https://discord.gg/yyCp5D2Ccp)
 Status: **in-game verified** (Mono + IL2CPP) — both flavors
 observed publishing motion telemetry in live games (Mono on BepInEx 5,
 IL2CPP on BepInEx 6 be.788), on top of the shared core's standalone
-wire-path checks (150-tick synthetic pawn, observed end-to-end on a
-real receiver).
+wire-path checks (150-tick synthetic pawn with body-dynamics
+assertions, observed end-to-end on a real receiver).
 
 ## What it tracks — the pawn, not the camera
 
@@ -26,6 +28,17 @@ the main camera's root transform as a flatscreen pawn proxy). Unity's
 world frame matches OGSA-TS natively — values pass through unmapped.
 The camera itself is engine-smoothed and a rig following it would feed
 platform motion back into telemetry.
+
+Body dynamics ride the `bodyDynamics` union variant in every motion
+frame: **specific force** (m/s², accelerometer-style: `f = a − g`,
++1 g on the up axis at rest — what an IMU reads) and **angular
+velocity** (rad/s, C-4 body-frame sense: +x nose-up, +y nose-right,
++z right-side-down), derived each frame from the pawn's pose by the
+vendored `BodyDynamicsDeriver` (position-delta velocity, τ = 0.1 s
+acceleration low-pass, teleport reset, quaternion-delta rates with no
+Euler representation-flip artifacts — see GameConn `docs/cueing.md`
+for the receiver-side value). Disable with the `Dynamics` config entry
+(default on; takes effect when the pawn is (re)resolved).
 
 ## Compatibility
 
