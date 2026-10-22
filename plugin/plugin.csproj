@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
-    <Compile Remove="../OgsaTelemetry/TelemetryReceiver.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,7 +34,6 @@
   <ItemGroup>
     <!-- spans on .NET Framework for the vendored core -->
     <PackageReference Include="System.Memory" Version="4.5.5" />
-    <PackageReference Include="Capnp.Net.Runtime" Version="1.3.118" />
   </ItemGroup>
 
 </Project>

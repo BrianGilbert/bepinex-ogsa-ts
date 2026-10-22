@@ -46,16 +46,16 @@ jobs:
           # mono: every dependency DLL rides along except our compile-only
           # UnityEngine stub (defensive — Private=false already keeps it out)
           Copy-Item plugin/bin/Release/*.dll dist/mono/ -Exclude UnityEngine.dll
-          # il2cpp: serializer closure only; the BepInEx/interop refs are
+          # il2cpp: the plugin alone; the BepInEx/interop refs are
           # compile-only and never reach bin. deps.json is noise for BepInEx.
           Copy-Item plugin-il2cpp/bin/Release/*.dll dist/il2cpp/
           Remove-Item dist/il2cpp/*.deps.json -ErrorAction SilentlyContinue
           foreach ($f in 'dist/mono/ogsa_telemetry.dll',
-                        'dist/mono/Capnp.Net.Runtime.dll',
-                        'dist/il2cpp/ogsa_telemetry.dll',
-                        'dist/il2cpp/Capnp.Net.Runtime.dll') {
+                        'dist/il2cpp/ogsa_telemetry.dll') {
             if (-not (Test-Path $f)) { throw "$f missing from build output" }
           }
+          # the core writes Cap'n Proto itself: no serializer DLL may ship
+          if (Get-ChildItem dist -Recurse -Filter 'Capnp*.dll') { throw "Capnp DLL in release" }
         shell: pwsh
       - name: Upload plugin artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -48,7 +48,7 @@ for the receiver-side value). Disable with the `Dynamics` config entry
 | 2018.3 – 2021.1 (Mono) | ✅ | .NET 4.x runtime is the default (Mono ≈ 4.7.1) |
 | 2021.2 – 2023.x / Unity 6 (Mono builds) | ✅ | Mono 6 / .NET 4.8-era runtime |
 | 2017.2 – 2018.2 (Mono) | ⚠️ | works if the developer selected the then-experimental ".NET 4.x" scripting profile |
-| ≤ 2017.1, or any game on the legacy .NET 3.5 profile | ❌ | the serializer can't target net35 — older BepInEx catalog |
+| ≤ 2017.1, or any game on the legacy .NET 3.5 profile | ❌ | the vendored core (System.Memory) can't target net35 — older BepInEx catalog |
 
 The binding constraint on Mono is the game's **.NET runtime**, not
 Unity's API — every Unity surface this plugin touches has been
@@ -92,9 +92,9 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
    black screen and check `LogOutput.log` before assuming failure).
 2. From the release zip, extract the **matching subfolder's contents** —
    `mono/` for BepInEx 5, `il2cpp/` for BepInEx 6 — into that game's
-   `<game root>\BepInEx\plugins\` — **all DLLs, not just
-   `ogsa_telemetry.dll`** (the serializer and runtime ship beside it;
-   ~15 files on Mono, ~10 on IL2CPP). E.g.
+   `<game root>\BepInEx\plugins\` — **every DLL in it** (IL2CPP:
+   `ogsa_telemetry.dll` alone; Mono: it plus four .NET Framework
+   backport DLLs such as `System.Memory.dll`). E.g.
    `C:\...\steamapps\common\<GameName>\BepInEx\plugins\`.
    If `plugins\` doesn't exist yet, create it. BepInEx plugins are
    per-game: the DLLs only load for the game you place them in.
@@ -131,8 +131,9 @@ with a synthetic pawn; exit 0 = pass. TelemetryReceive beside it shows
 ## How it builds without Unity's DLLs
 
 Both flavors compile the entire vendored Ogsa.Telemetry core
-(`sync-core.ps1`) straight into the plugin — one DLL per flavor beyond
-the serializer, no game DLLs required at build time:
+(`sync-core.ps1`) straight into the plugin — it writes Cap'n Proto frames
+itself, so there is no serializer DLL, and no game DLLs are required at
+build time:
 
 - **Mono** (`plugin/`, net472): `vendor/UnityEngineStub` is a
   compile-only stub assembly (named `UnityEngine`) mirroring the small
@@ -142,12 +143,13 @@ the serializer, no game DLLs required at build time:
 - **IL2CPP** (`plugin-il2cpp/`, net6.0): references the official
   BepInEx NuGet feed — `BepInEx.Unity.IL2CPP` (be.788, the current
   IL2CPP distribution) plus its interop-mapped UnityEngine reference
-  libs, both compile-only. The plugin (Cap'n Proto serializer
-  included) runs on BepInEx's .NET 6 CoreCLR sidecar, not inside
-  IL2CPP — only game-object access crosses the interop boundary.
+  libs, both compile-only. The plugin runs on BepInEx's .NET 6
+  CoreCLR sidecar, not inside IL2CPP — only game-object access crosses
+  the interop boundary.
 
-In both cases the serializer (`Capnp.Net.Runtime`) and its ships-along
-DLLs ride in the release zip as siblings, under the flavor's subfolder.
+The Mono flavor's .NET Framework backport DLLs (System.Memory and its
+closure) ride in the release zip as siblings under `mono/`; the IL2CPP
+flavor is the single plugin DLL under `il2cpp/`.
 
 ## Layout
 
