@@ -40,6 +40,13 @@ Euler representation-flip artifacts — see GameConn `docs/cueing.md`
 for the receiver-side value). Disable with the `Dynamics` config entry
 (default on; takes effect when the pawn is (re)resolved).
 
+Pauses are reported on the ratified `session.paused` channel (standard
+CONVENTIONS C-11): while the game's `Time.timeScale` is 0 the plugin
+keeps streaming on real time with the pause flag set and no dynamics, so
+motion rigs come to rest instead of freezing mid-move or dropping the
+session. Games that pause without touching `timeScale` aren't detected.
+Disable with the `PauseDetection` config entry (default on).
+
 ## Compatibility
 
 | Unity band | Status | Notes |
@@ -103,7 +110,7 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
 3. Run the game once; configure `<game>/BepInEx/config/ogsa.telemetry.cfg`:
    ```ini
    [Transport] Group = 239.255.17.17   ; Port = 40123   ; Ttl = 1
-   [Telemetry] MotionHz = 60           ; ObjectName = player
+   [Telemetry] MotionHz = 60           ; ObjectName = player   ; PauseDetection = true
    [Pawn] Tag = Player                 ; CameraRootFallback = true
    ```
 4. Pair with a receiver — e.g. ogsa-ts-dotnet's

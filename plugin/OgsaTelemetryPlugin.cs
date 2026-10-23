@@ -52,6 +52,8 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     ConfigEntry<string> _pawnTag = null!;
     ConfigEntry<bool> _useCameraRoot = null!;
     ConfigEntry<bool> _dynamics = null!;
+    ConfigEntry<bool> _pauseDetect = null!;
+    bool _wasPaused;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
     // the C++ twin in ogsa-ts-unreal): specific force accelerometer-style
@@ -86,6 +88,11 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                 "from the pawn pose — the direct motion-cueing " +
                                 "inputs). Takes effect when the pawn is " +
                                 "(re)resolved");
+        _pauseDetect = Config.Bind("Telemetry", "PauseDetection", true,
+                                   "Report the game as paused (OGSA-TS " +
+                                   "session.paused, CONVENTIONS C-11) while " +
+                                   "Time.timeScale is 0, so motion rigs come " +
+                                   "to rest instead of freezing mid-move");
     }
 
     void OnEnable()
@@ -94,6 +101,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                       loopback: true);
         _publisher = new TelemetryPublisher(_sender, GameName(), _motionHz.Value);
         _publisher.DeclareObject(_objectName.Value);
+        _publisher.DeclarePause();
         if (!string.IsNullOrEmpty(_typeLabel.Value))
             _publisher.SetObjectTypeLabel(_typeLabel.Value); // config wins
         UnityEngine.Debug.Log("[ogsa] OGSA-TS telemetry enabled: pawn '" +
@@ -134,9 +142,20 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
         // publisher's cadence), so derivative denominators stay small
         // (is-pattern: a plain reference check — a destroyed transform
         // still flows into SafePos's catch, same as the pose getters)
-        if (_pawn is { })
-            _deriver.Sample((double)Time.time, SafePos(), SafeRot());
-        pub.Tick((double)Time.time);
+        // C-11: Update keeps running while Time.timeScale is 0, so the
+        // stream continues through a pause on real time, reporting the
+        // pause and deriving nothing across it
+        bool paused = _pauseDetect.Value && Time.timeScale == 0f;
+        if (paused != pub.Paused) pub.SetPaused(paused);
+        if (_pawn is { } && !paused)
+        {
+            if (_wasPaused)
+                _deriver.Reset(SafePos(), SafeRot(), (double)Time.time);
+            else
+                _deriver.Sample((double)Time.time, SafePos(), SafeRot());
+        }
+        _wasPaused = paused;
+        pub.Tick((double)Time.realtimeSinceStartup);
     }
 
     // pose getters that survive scene changes and menu phases:

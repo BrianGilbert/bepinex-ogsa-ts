@@ -58,6 +58,7 @@ public class OgsaTelemetryPlugin : BasePlugin
     internal ConfigEntry<string> _pawnTag = null!;
     internal ConfigEntry<bool> _useCameraRoot = null!;
     internal ConfigEntry<bool> _dynamics = null!;
+    internal ConfigEntry<bool> _pauseDetect = null!;
 
     public override void Load()
     {
@@ -88,6 +89,11 @@ public class OgsaTelemetryPlugin : BasePlugin
                                 "from the pawn pose — the direct motion-cueing " +
                                 "inputs). Takes effect when the pawn is " +
                                 "(re)resolved");
+        _pauseDetect = Config.Bind("Telemetry", "PauseDetection", true,
+                                   "Report the game as paused (OGSA-TS " +
+                                   "session.paused, CONVENTIONS C-11) while " +
+                                   "Time.timeScale is 0, so motion rigs come " +
+                                   "to rest instead of freezing mid-move");
 
         AddComponent<OgsaBehaviour>();
         Log.LogInfo("[ogsa] OGSA-TS telemetry (IL2CPP) loaded: pawn '" +
@@ -124,6 +130,7 @@ public class OgsaBehaviour : MonoBehaviour
     Transform _pawn = null!;
     float _lastResolveAttempt = -1f;
     bool _warnedNoPawn;
+    bool _wasPaused;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
     // the C++ twin in ogsa-ts-unreal and the Mono flavor)
@@ -137,6 +144,7 @@ public class OgsaBehaviour : MonoBehaviour
         _publisher = new TelemetryPublisher(_sender, OgsaTelemetryPlugin.GameName(),
                                             p._motionHz.Value);
         _publisher.DeclareObject(p._objectName.Value);
+        _publisher.DeclarePause();
         if (!string.IsNullOrEmpty(p._typeLabel.Value))
             _publisher.SetObjectTypeLabel(p._typeLabel.Value); // config wins
         OgsaTelemetryPlugin.Instance.Log.LogInfo(
@@ -176,9 +184,21 @@ public class OgsaBehaviour : MonoBehaviour
         }
         // derivation runs every frame the pawn exists (not just at the
         // publisher's cadence), so derivative denominators stay small
-        if (_pawn != null)
-            _deriver.Sample((double)Time.time, SafePos(), SafeRot());
-        pub.Tick((double)Time.time);
+        // C-11: Update keeps running while Time.timeScale is 0, so the
+        // stream continues through a pause on real time, reporting the
+        // pause and deriving nothing across it
+        bool paused = OgsaTelemetryPlugin.Instance._pauseDetect.Value
+                      && Time.timeScale == 0f;
+        if (paused != pub.Paused) pub.SetPaused(paused);
+        if (_pawn != null && !paused)
+        {
+            if (_wasPaused)
+                _deriver.Reset(SafePos(), SafeRot(), (double)Time.time);
+            else
+                _deriver.Sample((double)Time.time, SafePos(), SafeRot());
+        }
+        _wasPaused = paused;
+        pub.Tick((double)Time.realtimeSinceStartup);
     }
 
     // pose getters that survive scene changes and menu phases: a destroyed
