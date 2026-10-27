@@ -4,15 +4,15 @@
     <TargetFramework>net472</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <Nullable>enable</Nullable>
-    <AssemblyName>ogsa_telemetry</AssemblyName>
-    <RootNamespace>Ogsa.BepInEx</RootNamespace>
+    <AssemblyName>ogs_telemetry</AssemblyName>
+    <RootNamespace>Ogs.BepInEx</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <DebugType>none</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
+    <Compile Include="../OgsTelemetry/*.cs" Link="OgsTelemetry/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

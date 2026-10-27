@@ -1,6 +1,6 @@
 // Smoke.cs — standalone verification of the plugin's wire path, no BepInEx
 // and no Unity required: drives the exact vendored core publisher with a
-// synthetic pawn (Unity frame == OGSA-TS frame, so values pass through
+// synthetic pawn (Unity frame == OGS-TS frame, so values pass through
 // unmapped) and prints frame counts. Exit 0 = pass. Run TelemetryReceive
 // beside it to watch 'synthetic_pawn' on the wire.
 //
@@ -8,12 +8,12 @@
 // core and byte-compares against the standard's committed vectors —
 // guards the vendored writers against drift.
 //
-// Corpus dir: sibling OGSA-Telemetry-Standard (local dev) or nested
-// checkout at the repo root (CI: path: OGSA-Telemetry-Standard).
+// Corpus dir: sibling OGS-Telemetry-Standard (local dev) or nested
+// checkout at the repo root (CI: path: OGS-Telemetry-Standard).
 using System;
 using System.IO;
 using System.Numerics;
-using Ogsa.Telemetry;
+using Ogs.Telemetry;
 
 using var sender = new TelemetrySender();
 using var pub = new TelemetryPublisher(sender, "bepinex_smoke", motionHz: 60);
@@ -37,7 +37,7 @@ for (int i = 0; i < 150; i++)
 {
     // pawn circling horizontally at 10 m, nose tangential, turning
     // nose-right at yawRate — centripetal ω²r points +sway in the body
-    // frame the whole time (Unity/OGSA ground plane is X-Z, Y up — NOT
+    // frame the whole time (Unity/OGS ground plane is X-Z, Y up — NOT
     // UE's X-Y)
     double yr = w * t;
     Vector3 pos = new(10f * MathF.Cos((float)yr), 0f, 10f * MathF.Sin((float)yr));
@@ -100,15 +100,15 @@ for (var d = new DirectoryInfo(AppContext.BaseDirectory);
     string?[] candidates =
     {
         d.Parent is DirectoryInfo p
-            ? Path.Combine(p.FullName, "OGSA-Telemetry-Standard", "conformance") : null,
-        Path.Combine(d.FullName, "OGSA-Telemetry-Standard", "conformance"),
+            ? Path.Combine(p.FullName, "OGS-Telemetry-Standard", "conformance") : null,
+        Path.Combine(d.FullName, "OGS-Telemetry-Standard", "conformance"),
     };
     foreach (var c in candidates)
         if (c != null && Directory.Exists(c)) { corpusDir = c; break; }
 }
 if (corpusDir == null)
 {
-    Console.WriteLine("FAIL corpus: OGSA-Telemetry-Standard/conformance not found "
+    Console.WriteLine("FAIL corpus: OGS-Telemetry-Standard/conformance not found "
                     + "(sibling or nested checkout)");
     return 1;
 }

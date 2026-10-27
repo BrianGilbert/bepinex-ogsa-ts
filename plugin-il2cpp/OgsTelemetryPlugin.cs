@@ -1,7 +1,7 @@
-// OgsaTelemetryPlugin.cs — OGSA-TS telemetry for BepInEx 6 (Unity, IL2CPP).
+// OgsTelemetryPlugin.cs — OGS-TS telemetry for BepInEx 6 (Unity, IL2CPP).
 //
-// IL2CPP twin of ../plugin/OgsaTelemetryPlugin.cs (BepInEx 5, Mono): same
-// vendored Ogsa.Telemetry core, same config keys and defaults, same pawn
+// IL2CPP twin of ../plugin/OgsTelemetryPlugin.cs (BepInEx 5, Mono): same
+// vendored Ogs.Telemetry core, same config keys and defaults, same pawn
 // ladder and wire behaviour. Everything differs only at the engine seam:
 //
 //   * BepInEx 6 IL2CPP plugins are plain classes — BasePlugin.Load()
@@ -34,20 +34,20 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using UnityEngine;
-using Ogsa.Telemetry;
+using Ogs.Telemetry;
 
-namespace Ogsa.BepInEx
+namespace Ogs.BepInEx
 {
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-public class OgsaTelemetryPlugin : BasePlugin
+public class OgsTelemetryPlugin : BasePlugin
 {
-    public const string PluginGuid = "ogsa.telemetry";
-    public const string PluginName = "OGSA-TS Telemetry";
+    public const string PluginGuid = "ogs.telemetry";
+    public const string PluginName = "OGS-TS Telemetry";
     public const string PluginVersion = "0.1.0";
 
     // set before AddComponent runs, so the component's OnEnable (which
     // fires synchronously inside AddComponent) can read config through it
-    internal static OgsaTelemetryPlugin Instance = null!;
+    internal static OgsTelemetryPlugin Instance = null!;
 
     internal ConfigEntry<string> _group = null!;
     internal ConfigEntry<int> _port = null!;
@@ -91,18 +91,18 @@ public class OgsaTelemetryPlugin : BasePlugin
                                 "inputs). Takes effect when the pawn is " +
                                 "(re)resolved");
         _pauseDetect = Config.Bind("Telemetry", "PauseDetection", true,
-                                   "Report the game as paused (OGSA-TS " +
+                                   "Report the game as paused (OGS-TS " +
                                    "session.paused, CONVENTIONS C-11) while " +
                                    "Time.timeScale is 0, so motion rigs come " +
                                    "to rest instead of freezing mid-move");
         _gravityFromPhysics = Config.Bind("Telemetry", "GravityFromPhysics", true,
                                           "Declare the game's Physics.gravity as " +
-                                          "the session gravity (OGSA-TS CONVENTIONS " +
+                                          "the session gravity (OGS-TS CONVENTIONS " +
                                           "C-12), following changes, so derived " +
                                           "heave reacts to the game's real gravity");
 
-        AddComponent<OgsaBehaviour>();
-        Log.LogInfo("[ogsa] OGSA-TS telemetry (IL2CPP) loaded: pawn '" +
+        AddComponent<OgsBehaviour>();
+        Log.LogInfo("[ogs] OGS-TS telemetry (IL2CPP) loaded: pawn '" +
                     _objectName.Value + "' -> " + _group.Value + ":" +
                     _port.Value);
     }
@@ -129,7 +129,7 @@ public class OgsaTelemetryPlugin : BasePlugin
 // Load) registers the type with IL2CPP and forwards Unity messages here;
 // managed fields and the publisher live on the CoreCLR side. Attached to
 // BepInEx's manager object, so it survives scene changes.
-public class OgsaBehaviour : MonoBehaviour
+public class OgsBehaviour : MonoBehaviour
 {
     TelemetryPublisher _publisher = null!;
     TelemetrySender _sender = null!;
@@ -141,22 +141,22 @@ public class OgsaBehaviour : MonoBehaviour
     Func<System.Numerics.Vector3?>? _readGravity;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
-    // the C++ twin in ogsa-ts-unreal and the Mono flavor)
+    // the C++ twin in ogs-ts-unreal and the Mono flavor)
     BodyDynamicsDeriver _deriver = new();
 
     void OnEnable()
     {
-        var p = OgsaTelemetryPlugin.Instance;
+        var p = OgsTelemetryPlugin.Instance;
         _sender = new TelemetrySender(p._group.Value, p._port.Value,
                                       p._ttl.Value, loopback: true);
-        _publisher = new TelemetryPublisher(_sender, OgsaTelemetryPlugin.GameName(),
+        _publisher = new TelemetryPublisher(_sender, OgsTelemetryPlugin.GameName(),
                                             p._motionHz.Value);
         _publisher.DeclareObject(p._objectName.Value);
         _publisher.DeclarePause();
         if (!string.IsNullOrEmpty(p._typeLabel.Value))
             _publisher.SetObjectTypeLabel(p._typeLabel.Value); // config wins
-        OgsaTelemetryPlugin.Instance.Log.LogInfo(
-            "[ogsa] OGSA-TS telemetry enabled: pawn '" + p._objectName.Value +
+        OgsTelemetryPlugin.Instance.Log.LogInfo(
+            "[ogs] OGS-TS telemetry enabled: pawn '" + p._objectName.Value +
             "' -> " + p._group.Value + ":" + p._port.Value);
     }
 
@@ -180,7 +180,7 @@ public class OgsaBehaviour : MonoBehaviour
             if (_pawn != null)
             {
                 pub.BindPose(() => SafePos(), () => SafeRot());
-                var p = OgsaTelemetryPlugin.Instance;
+                var p = OgsTelemetryPlugin.Instance;
                 if (p._dynamics.Value)
                     pub.BindBodyDynamics(() =>
                         (_deriver.SpecificForce, _deriver.AngularVelocity));
@@ -195,12 +195,12 @@ public class OgsaBehaviour : MonoBehaviour
         // C-11: Update keeps running while Time.timeScale is 0, so the
         // stream continues through a pause on real time, reporting the
         // pause and deriving nothing across it
-        bool paused = OgsaTelemetryPlugin.Instance._pauseDetect.Value
+        bool paused = OgsTelemetryPlugin.Instance._pauseDetect.Value
                       && Time.timeScale == 0f;
         if (paused != pub.Paused) pub.SetPaused(paused);
         // C-12: the game's own gravity, polled at 1 Hz (it rarely changes;
         // SetGravity re-sends discovery only on change)
-        if (OgsaTelemetryPlugin.Instance._gravityFromPhysics.Value
+        if (OgsTelemetryPlugin.Instance._gravityFromPhysics.Value
             && Time.realtimeSinceStartup - _lastGravityPoll > 1f)
         {
             _lastGravityPoll = Time.realtimeSinceStartup;
@@ -244,7 +244,7 @@ public class OgsaBehaviour : MonoBehaviour
 
     Transform ResolvePawn()
     {
-        var p = OgsaTelemetryPlugin.Instance;
+        var p = OgsTelemetryPlugin.Instance;
         try
         {
             var byTag = GameObject.FindWithTag(p._pawnTag.Value);
@@ -261,8 +261,8 @@ public class OgsaBehaviour : MonoBehaviour
         if (!_warnedNoPawn)
         {
             _warnedNoPawn = true;
-            OgsaTelemetryPlugin.Instance.Log.LogWarning(
-                "[ogsa] no pawn found (tag '" + p._pawnTag.Value + "' / camera " +
+            OgsTelemetryPlugin.Instance.Log.LogWarning(
+                "[ogs] no pawn found (tag '" + p._pawnTag.Value + "' / camera " +
                 "root); retrying every second — set Pawn.Tag in the config");
         }
         return null!;
@@ -275,7 +275,7 @@ public class OgsaBehaviour : MonoBehaviour
     // Physics.gravity through reflection: UnityEngine.PhysicsModule is
     // absent from games without 3D physics (a direct reference would fail
     // to load) and is not among this flavor's compile refs; the interop
-    // proxy struct keeps Unity's x/y/z fields. Unity's frame is OGSA-TS
+    // proxy struct keeps Unity's x/y/z fields. Unity's frame is OGS-TS
     // native, so the vector passes through. Null = no physics module
     // (retried at the next poll).
     static Func<System.Numerics.Vector3?>? PhysicsGravityReader()

@@ -1,4 +1,4 @@
-# bepinex-ogsa-ts
+# bepinex-ogs-ts
 
 > [!IMPORTANT]
 > **In active development.** Validated in Subnautica Below Zero, Hyper
@@ -10,11 +10,11 @@
 >
 > Development is funded by
 > [sponsorship](https://github.com/sponsors/BrianGilbert), which moves this
-> and the rest of the [OGSA](https://github.com/Open-Game-Standards-Alliance)
+> and the rest of the [OGS](https://github.com/Open-Game-Standards)
 > work forward.
 
 [BepInEx](https://github.com/BepInEx/BepInEx) plugin that publishes
-[OGSA Telemetry Standard (OGSA-TS)](https://github.com/Open-Game-Standards-Alliance/OGSA-Telemetry-Standard)
+[OGS Telemetry Standard (OGS-TS)](https://github.com/Open-Game-Standards/OGS-Telemetry-Standard)
 motion telemetry from **any Unity game BepInEx injects — Mono or
 IL2CPP** — zero game modification, LAN-only UDP multicast. Motion
 platforms, haptic hardware, and dashboards on the local network can
@@ -23,8 +23,8 @@ follow the game. Motion frames carry pose **plus body dynamics**
 derived from the pawn pose). The release zip carries both flavors in `mono/` and
 `il2cpp/` subfolders; each is the same plugin built for its BepInEx
 generation. Companion plugins:
-[uevr-ogsa-ts](https://github.com/BrianGilbert/uevr-ogsa-ts) (UE VR) ·
-[ue4ss-ogsa-ts](https://github.com/BrianGilbert/ue4ss-ogsa-ts) (UE flatscreen).
+[uevr-ogs-ts](https://github.com/BrianGilbert/uevr-ogs-ts) (UE VR) ·
+[ue4ss-ogs-ts](https://github.com/BrianGilbert/ue4ss-ogs-ts) (UE flatscreen).
 
 Support & discussion: [Discord](https://discord.gg/yyCp5D2Ccp)
 
@@ -38,7 +38,7 @@ assertions, observed end-to-end on a real receiver).
 
 The motion object is the **player pawn** (tag `Player` by default, or
 the main camera's root transform as a flatscreen pawn proxy). Unity's
-world frame matches OGSA-TS natively — values pass through unmapped.
+world frame matches OGS-TS natively — values pass through unmapped.
 The camera itself is engine-smoothed and a rig following it would feed
 platform motion back into telemetry.
 
@@ -120,21 +120,21 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
 2. From the release zip, extract the **matching subfolder's contents** —
    `mono/` for BepInEx 5, `il2cpp/` for BepInEx 6 — into that game's
    `<game root>\BepInEx\plugins\` — **every DLL in it** (IL2CPP:
-   `ogsa_telemetry.dll` alone; Mono: it plus four .NET Framework
+   `ogs_telemetry.dll` alone; Mono: it plus four .NET Framework
    backport DLLs such as `System.Memory.dll`). E.g.
    `C:\...\steamapps\common\<GameName>\BepInEx\plugins\`.
    If `plugins\` doesn't exist yet, create it. BepInEx plugins are
    per-game: the DLLs only load for the game you place them in.
    Don't mix flavors — the `il2cpp/` DLL is a .NET 6 assembly BepInEx 5
    cannot load, and vice versa.
-3. Run the game once; configure `<game>/BepInEx/config/ogsa.telemetry.cfg`:
+3. Run the game once; configure `<game>/BepInEx/config/ogs.telemetry.cfg`:
    ```ini
    [Transport] Group = 239.255.17.17   ; Port = 40123   ; Ttl = 1
    [Telemetry] MotionHz = 60           ; ObjectName = player   ; PauseDetection = true
                GravityFromPhysics = true
    [Pawn] Tag = Player                 ; CameraRootFallback = true
    ```
-4. Pair with a receiver — e.g. ogsa-ts-dotnet's
+4. Pair with a receiver — e.g. ogs-ts-dotnet's
    `dotnet run --project src/TelemetryReceive`.
 
 If the tag finds nothing, the plugin falls back to the camera root and
@@ -158,7 +158,7 @@ with a synthetic pawn; exit 0 = pass. TelemetryReceive beside it shows
 
 ## How it builds without Unity's DLLs
 
-Both flavors compile the entire vendored Ogsa.Telemetry core
+Both flavors compile the entire vendored Ogs.Telemetry core
 (`sync-core.ps1`) straight into the plugin — it writes Cap'n Proto frames
 itself, so there is no serializer DLL, and no game DLLs are required at
 build time:
@@ -185,6 +185,6 @@ flavor is the single plugin DLL under `il2cpp/`.
 |---|---|
 | `plugin/` | BepInEx 5 Mono glue (config, pawn ladder, Update tick) |
 | `plugin-il2cpp/` | BepInEx 6 IL2CPP glue (BasePlugin + injected tick component) |
-| `OgsaTelemetry/` | vendored engine-agnostic core (source) |
+| `OgsTelemetry/` | vendored engine-agnostic core (source) |
 | `vendor/UnityEngineStub/` | compile-only UnityEngine stub (Mono flavor) |
 | `Smoke/` | standalone wire-path verification |

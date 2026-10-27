@@ -1,12 +1,12 @@
-// OgsaTelemetryPlugin.cs — OGSA-TS telemetry for BepInEx (Unity, Mono).
+// OgsTelemetryPlugin.cs — OGS-TS telemetry for BepInEx (Unity, Mono).
 //
 // Publishes the player pawn's world pose (the controlled body — not the
-// camera; KB ruling C-20261010-MBP-08) as OGSA-TS motion telemetry from
-// any Unity game BepInEx injects. Unity's world frame matches OGSA-TS
+// camera; KB ruling C-20261010-MBP-08) as OGS-TS motion telemetry from
+// any Unity game BepInEx injects. Unity's world frame matches OGS-TS
 // natively (LH, Z-fwd, Y-up, metres) — pose values pass through with no
 // remap. Zero game modification; LAN-only UDP multicast.
 //
-// The entire Ogsa.Telemetry C# core (vendored source, the same files the
+// The entire Ogs.Telemetry C# core (vendored source, the same files the
 // Unity package ships) is compiled into this assembly — one DLL, no deps
 // beyond the game's own UnityEngine.
 //
@@ -26,15 +26,15 @@ using System;
 using BepInEx;
 using BepInEx.Configuration;
 using UnityEngine;
-using Ogsa.Telemetry;
+using Ogs.Telemetry;
 
-namespace Ogsa.BepInEx
+namespace Ogs.BepInEx
 {
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-public class OgsaTelemetryPlugin : BaseUnityPlugin
+public class OgsTelemetryPlugin : BaseUnityPlugin
 {
-    public const string PluginGuid = "ogsa.telemetry";
-    public const string PluginName = "OGSA-TS Telemetry";
+    public const string PluginGuid = "ogs.telemetry";
+    public const string PluginName = "OGS-TS Telemetry";
     public const string PluginVersion = "0.1.0";
 
     TelemetryPublisher _publisher = null!;
@@ -59,7 +59,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     Func<System.Numerics.Vector3?>? _readGravity;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
-    // the C++ twin in ogsa-ts-unreal): specific force accelerometer-style
+    // the C++ twin in ogs-ts-unreal): specific force accelerometer-style
     // (+|g| heave at rest, g = the declared gravity), angular velocity in
     // the C-4 component sense — see BodyDynamicsDeriver's class doc
     BodyDynamicsDeriver _deriver = new();
@@ -92,13 +92,13 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                 "inputs). Takes effect when the pawn is " +
                                 "(re)resolved");
         _pauseDetect = Config.Bind("Telemetry", "PauseDetection", true,
-                                   "Report the game as paused (OGSA-TS " +
+                                   "Report the game as paused (OGS-TS " +
                                    "session.paused, CONVENTIONS C-11) while " +
                                    "Time.timeScale is 0, so motion rigs come " +
                                    "to rest instead of freezing mid-move");
         _gravityFromPhysics = Config.Bind("Telemetry", "GravityFromPhysics", true,
                                           "Declare the game's Physics.gravity as " +
-                                          "the session gravity (OGSA-TS CONVENTIONS " +
+                                          "the session gravity (OGS-TS CONVENTIONS " +
                                           "C-12), following changes, so derived " +
                                           "heave reacts to the game's real gravity");
     }
@@ -112,7 +112,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
         _publisher.DeclarePause();
         if (!string.IsNullOrEmpty(_typeLabel.Value))
             _publisher.SetObjectTypeLabel(_typeLabel.Value); // config wins
-        UnityEngine.Debug.Log("[ogsa] OGSA-TS telemetry enabled: pawn '" +
+        UnityEngine.Debug.Log("[ogs] OGS-TS telemetry enabled: pawn '" +
                               _objectName.Value + "' -> " + _group.Value + ":" +
                               _port.Value);
     }
@@ -216,7 +216,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
         {
             _warnedNoPawn = true;
             UnityEngine.Debug.LogWarning(
-                "[ogsa] no pawn found (tag '" + _pawnTag.Value + "' / camera " +
+                "[ogs] no pawn found (tag '" + _pawnTag.Value + "' / camera " +
                 "root); retrying every second — set Pawn.Tag in the config");
         }
         return null!;
@@ -244,7 +244,7 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     // Physics.gravity through reflection: UnityEngine.PhysicsModule is
     // absent from games without 3D physics (a direct reference would fail
     // to load) and is not among the IL2CPP flavor's compile refs. Unity's
-    // frame is OGSA-TS native, so the vector passes through. Null = no
+    // frame is OGS-TS native, so the vector passes through. Null = no
     // physics module (retried at the next poll).
     static Func<System.Numerics.Vector3?>? PhysicsGravityReader()
     {

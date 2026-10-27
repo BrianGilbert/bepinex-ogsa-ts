@@ -1,12 +1,12 @@
-# sync-core.ps1 — vendor the engine-agnostic C# core from ogsa-ts-dotnet
+# sync-core.ps1 — vendor the engine-agnostic C# core from ogs-ts-dotnet
 # (the same source the Unity package ships), flattening Schema/ into
-# OgsaTelemetry/. Vendored files that no longer exist upstream are
+# OgsTelemetry/. Vendored files that no longer exist upstream are
 # removed. Run from the repo root after pulling upstream changes.
 $ErrorActionPreference = 'Stop'
-$src = "../ogsa-ts-dotnet/src/Ogsa.Telemetry"
-$dst = "OgsaTelemetry"
+$src = "../ogs-ts-dotnet/src/Ogs.Telemetry"
+$dst = "OgsTelemetry"
 if (-not (Test-Path "$src/TelemetryPublisher.cs")) {
-    throw "source not found: $src (is ogsa-ts-dotnet checked out as a sibling?)"
+    throw "source not found: $src (is ogs-ts-dotnet checked out as a sibling?)"
 }
 $changed = 0
 $upstream = @(Get-ChildItem "$src/*.cs") + @(Get-ChildItem "$src/Schema/*.cs")

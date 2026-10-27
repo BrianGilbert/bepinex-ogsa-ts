@@ -4,11 +4,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <AssemblyName>ogsa_smoke</AssemblyName>
+    <AssemblyName>ogs_smoke</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../OgsaTelemetry/*.cs" Link="OgsaTelemetry/%(Filename)%(Extension)" />
+    <Compile Include="../OgsTelemetry/*.cs" Link="OgsTelemetry/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

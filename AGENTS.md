@@ -1,9 +1,9 @@
-# bepinex-ogsa-ts — working conventions
+# bepinex-ogs-ts — working conventions
 
 - Motion object is the player PAWN (tag Player / camera-root proxy),
   not the camera — KB ruling C-20261010-MBP-08. Unity frame maps to
-  OGSA-TS natively (no conversion); the vendored C# core IS the wire.
-- OgsaTelemetry/ is vendored source from ../ogsa-ts-dotnet (sync-core.ps1,
+  OGS-TS natively (no conversion); the vendored C# core IS the wire.
+- OgsTelemetry/ is vendored source from ../ogs-ts-dotnet (sync-core.ps1,
   receiver excluded). The core carries a netstandard2.0 TFM specifically
   for this plugin (BepInEx 5 Mono runs .NET Framework).
 - vendor/UnityEngineStub is a compile-only stub ASSEMBLY NAMED
@@ -31,7 +31,7 @@
   fields); convert per component exactly like the Mono flavor.
 - The Mono plugin targets net472 and ships System.Memory's closure
   (System.Memory/Buffers/Numerics.Vectors/Runtime.CompilerServices.Unsafe)
-  beside ogsa_telemetry.dll. IL2CPP games run the net6.0 flavor on
-  BepInEx 6 be.788+; it ships ogsa_telemetry.dll alone.
+  beside ogs_telemetry.dll. IL2CPP games run the net6.0 flavor on
+  BepInEx 6 be.788+; it ships ogs_telemetry.dll alone.
 - Product docs describe current state only; history lives in the
-  Open-Game-Standards-Alliance knowledge base.
+  Open-Game-Standards knowledge base.
