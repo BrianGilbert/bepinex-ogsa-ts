@@ -59,6 +59,7 @@ public class OgsaTelemetryPlugin : BasePlugin
     internal ConfigEntry<bool> _useCameraRoot = null!;
     internal ConfigEntry<bool> _dynamics = null!;
     internal ConfigEntry<bool> _pauseDetect = null!;
+    internal ConfigEntry<bool> _gravityFromPhysics = null!;
 
     public override void Load()
     {
@@ -94,6 +95,11 @@ public class OgsaTelemetryPlugin : BasePlugin
                                    "session.paused, CONVENTIONS C-11) while " +
                                    "Time.timeScale is 0, so motion rigs come " +
                                    "to rest instead of freezing mid-move");
+        _gravityFromPhysics = Config.Bind("Telemetry", "GravityFromPhysics", true,
+                                          "Declare the game's Physics.gravity as " +
+                                          "the session gravity (OGSA-TS CONVENTIONS " +
+                                          "C-12), following changes, so derived " +
+                                          "heave reacts to the game's real gravity");
 
         AddComponent<OgsaBehaviour>();
         Log.LogInfo("[ogsa] OGSA-TS telemetry (IL2CPP) loaded: pawn '" +
@@ -131,6 +137,8 @@ public class OgsaBehaviour : MonoBehaviour
     float _lastResolveAttempt = -1f;
     bool _warnedNoPawn;
     bool _wasPaused;
+    float _lastGravityPoll = -1f;
+    Func<System.Numerics.Vector3?>? _readGravity;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
     // the C++ twin in ogsa-ts-unreal and the Mono flavor)
@@ -190,6 +198,16 @@ public class OgsaBehaviour : MonoBehaviour
         bool paused = OgsaTelemetryPlugin.Instance._pauseDetect.Value
                       && Time.timeScale == 0f;
         if (paused != pub.Paused) pub.SetPaused(paused);
+        // C-12: the game's own gravity, polled at 1 Hz (it rarely changes;
+        // SetGravity re-sends discovery only on change)
+        if (OgsaTelemetryPlugin.Instance._gravityFromPhysics.Value
+            && Time.realtimeSinceStartup - _lastGravityPoll > 1f)
+        {
+            _lastGravityPoll = Time.realtimeSinceStartup;
+            _readGravity ??= PhysicsGravityReader();
+            if (_readGravity?.Invoke() is { } g) pub.SetGravity(g);
+        }
+        _deriver.GravityVector = pub.EffectiveGravity;
         if (_pawn != null && !paused)
         {
             if (_wasPaused)
@@ -254,6 +272,39 @@ public class OgsaBehaviour : MonoBehaviour
     // class-level name stays stable across respawn/instantiation, matching
     // the schema's stable-name requirement (instance-suffixed names would
     // churn discovery re-sends on every respawn)
+    // Physics.gravity through reflection: UnityEngine.PhysicsModule is
+    // absent from games without 3D physics (a direct reference would fail
+    // to load) and is not among this flavor's compile refs; the interop
+    // proxy struct keeps Unity's x/y/z fields. Unity's frame is OGSA-TS
+    // native, so the vector passes through. Null = no physics module
+    // (retried at the next poll).
+    static Func<System.Numerics.Vector3?>? PhysicsGravityReader()
+    {
+        try
+        {
+            var physics = Type.GetType("UnityEngine.Physics, UnityEngine.PhysicsModule", false);
+            if (physics == null)
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                    if ((physics = asm.GetType("UnityEngine.Physics", false)) != null) break;
+            var prop = physics?.GetProperty("gravity",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            var vt = prop?.PropertyType;
+            var fx = vt?.GetField("x"); var fy = vt?.GetField("y"); var fz = vt?.GetField("z");
+            if (prop == null || fx == null || fy == null || fz == null) return null;
+            return () =>
+            {
+                try
+                {
+                    var v = prop.GetValue(null);
+                    return new System.Numerics.Vector3(
+                        (float)fx.GetValue(v)!, (float)fy.GetValue(v)!, (float)fz.GetValue(v)!);
+                }
+                catch { return null; }
+            };
+        }
+        catch { return null; }
+    }
+
     static string CleanPawnName(string name)
     {
         var n = name.TrimEnd();

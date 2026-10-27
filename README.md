@@ -60,6 +60,13 @@ motion rigs come to rest instead of freezing mid-move or dropping the
 session. Games that pause without touching `timeScale` aren't detected.
 Disable with the `PauseDetection` config entry (default on).
 
+The session gravity in discovery is the game's own `Physics.gravity`
+(standard CONVENTIONS C-12), polled once a second, and the derived
+specific force reacts to the same gravity, so heave at rest reads the
+game's |g| rather than an assumed 9.80665. Games without Unity's 3D
+physics module keep standard gravity. Disable with the
+`GravityFromPhysics` config entry (default on).
+
 ## Compatibility
 
 | Unity band | Status | Notes |
@@ -124,6 +131,7 @@ If the game is Mono and 2018.3+ and the plugin still doesn't load, check the Bep
    ```ini
    [Transport] Group = 239.255.17.17   ; Port = 40123   ; Ttl = 1
    [Telemetry] MotionHz = 60           ; ObjectName = player   ; PauseDetection = true
+               GravityFromPhysics = true
    [Pawn] Tag = Player                 ; CameraRootFallback = true
    ```
 4. Pair with a receiver — e.g. ogsa-ts-dotnet's

@@ -53,12 +53,15 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
     ConfigEntry<bool> _useCameraRoot = null!;
     ConfigEntry<bool> _dynamics = null!;
     ConfigEntry<bool> _pauseDetect = null!;
+    ConfigEntry<bool> _gravityFromPhysics = null!;
     bool _wasPaused;
+    float _lastGravityPoll = -1f;
+    Func<System.Numerics.Vector3?>? _readGravity;
 
     // pose → body-dynamics derivation (vendored core, same semantics as
     // the C++ twin in ogsa-ts-unreal): specific force accelerometer-style
-    // (+9.80665 heave at rest), angular velocity in the C-4 component
-    // sense — see BodyDynamicsDeriver's class doc
+    // (+|g| heave at rest, g = the declared gravity), angular velocity in
+    // the C-4 component sense — see BodyDynamicsDeriver's class doc
     BodyDynamicsDeriver _deriver = new();
 
     void Awake()
@@ -93,6 +96,11 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                                    "session.paused, CONVENTIONS C-11) while " +
                                    "Time.timeScale is 0, so motion rigs come " +
                                    "to rest instead of freezing mid-move");
+        _gravityFromPhysics = Config.Bind("Telemetry", "GravityFromPhysics", true,
+                                          "Declare the game's Physics.gravity as " +
+                                          "the session gravity (OGSA-TS CONVENTIONS " +
+                                          "C-12), following changes, so derived " +
+                                          "heave reacts to the game's real gravity");
     }
 
     void OnEnable()
@@ -147,6 +155,15 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
         // pause and deriving nothing across it
         bool paused = _pauseDetect.Value && Time.timeScale == 0f;
         if (paused != pub.Paused) pub.SetPaused(paused);
+        // C-12: the game's own gravity, polled at 1 Hz (it rarely changes;
+        // SetGravity re-sends discovery only on change)
+        if (_gravityFromPhysics.Value && Time.realtimeSinceStartup - _lastGravityPoll > 1f)
+        {
+            _lastGravityPoll = Time.realtimeSinceStartup;
+            _readGravity ??= PhysicsGravityReader();
+            if (_readGravity?.Invoke() is { } g) pub.SetGravity(g);
+        }
+        _deriver.GravityVector = pub.EffectiveGravity;
         if (_pawn is { } && !paused)
         {
             if (_wasPaused)
@@ -222,6 +239,38 @@ public class OgsaTelemetryPlugin : BaseUnityPlugin
                 n = n.Substring(0, cut - 2).TrimEnd();
         }
         return n;
+    }
+
+    // Physics.gravity through reflection: UnityEngine.PhysicsModule is
+    // absent from games without 3D physics (a direct reference would fail
+    // to load) and is not among the IL2CPP flavor's compile refs. Unity's
+    // frame is OGSA-TS native, so the vector passes through. Null = no
+    // physics module (retried at the next poll).
+    static Func<System.Numerics.Vector3?>? PhysicsGravityReader()
+    {
+        try
+        {
+            var physics = Type.GetType("UnityEngine.Physics, UnityEngine.PhysicsModule", false);
+            if (physics == null)
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                    if ((physics = asm.GetType("UnityEngine.Physics", false)) != null) break;
+            var prop = physics?.GetProperty("gravity",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            var vt = prop?.PropertyType;
+            var fx = vt?.GetField("x"); var fy = vt?.GetField("y"); var fz = vt?.GetField("z");
+            if (prop == null || fx == null || fy == null || fz == null) return null;
+            return () =>
+            {
+                try
+                {
+                    var v = prop.GetValue(null);
+                    return new System.Numerics.Vector3(
+                        (float)fx.GetValue(v)!, (float)fy.GetValue(v)!, (float)fz.GetValue(v)!);
+                }
+                catch { return null; }
+            };
+        }
+        catch { return null; }
     }
 
     static string GameName()
